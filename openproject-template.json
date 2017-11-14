@@ -26,7 +26,7 @@
             "kind": "PersistentVolumeClaim",
             "apiVersion": "v1",
             "metadata": {
-                "name": "mysql"
+                "name": "database"
             },
             "spec": {
                 "accessModes": [
@@ -178,10 +178,9 @@
             "kind": "DeploymentConfig",
             "apiVersion": "v1",
             "metadata": {
-                "name": "mysql",
+                "name": "database",
                 "labels": {
-                    "app": "openproject",
-                    "template": "mysql-persistent-template"
+                    "app": "openproject"
                 }
             },
             "spec": {
@@ -198,12 +197,12 @@
                         "imageChangeParams": {
                             "automatic": true,
                             "containerNames": [
-                                "mysql"
+                                "postgres"
                             ],
                             "from": {
                                 "kind": "ImageStreamTag",
                                 "namespace": "openshift",
-                                "name": "mysql:5.7"
+                                "name": "postgres:9.5"
                             }
                         }
                     },
@@ -214,27 +213,27 @@
                 "replicas": 1,
                 "test": false,
                 "selector": {
-                    "name": "mysql"
+                    "name": "postgres"
                 },
                 "template": {
                     "metadata": {
                         "labels": {
-                            "name": "mysql"
+                            "name": "postgres"
                         }
                     },
                     "spec": {
                         "volumes": [
                             {
-                                "name": "mysql",
+                                "name": "database",
                                 "persistentVolumeClaim": {
-                                    "claimName": "mysql"
+                                    "claimName": "database"
                                 }
                             }
                         ],
                         "containers": [
                             {
-                                "name": "mysql",
-                                "image": "registry.access.redhat.com/rhscl/mysql-57-rhel7:latest",
+                                "name": "postgres",
+                                "image": "registry.access.redhat.com/rhscl/postgresql-95-rhel7:latest",
                                 "ports": [
                                     {
                                         "containerPort": 3306,
@@ -243,15 +242,15 @@
                                 ],
                                 "env": [
                                     {
-                                        "name": "MYSQL_USER",
+                                        "name": "POSTGRESQL_USER",
                                         "value": "${RAILS_DB_USERNAME}"
                                     },
                                     {
-                                        "name": "MYSQL_PASSWORD",
+                                        "name": "POSTGRESQL_PASSWORD",
                                         "value": "${RAILS_DB_PASSWORD}"
                                     },
                                     {
-                                        "name": "MYSQL_DATABASE",
+                                        "name": "POSTGRESQL_DATABASE",
                                         "value": "${RAILS_DB_NAME}"
                                     }
                                 ],
@@ -262,35 +261,24 @@
                                 },
                                 "volumeMounts": [
                                     {
-                                        "name": "mysql",
-                                        "mountPath": "/var/lib/mysql/data",
+                                        "name": "database",
+                                        "mountPath": "/var/lib/pgsql",
                                         "subPath": "data"
                                     }
                                 ],
-                                "livenessProbe": {
-                                    "tcpSocket": {
-                                        "port": 3306
-                                    },
-                                    "initialDelaySeconds": 30,
-                                    "timeoutSeconds": 1,
-                                    "periodSeconds": 10,
-                                    "successThreshold": 1,
-                                    "failureThreshold": 3
-                                },
                                 "readinessProbe": {
-                                    "exec": {
-                                        "command": [
-                                            "/bin/sh",
-                                            "-i",
-                                            "-c",
-                                            "MYSQL_PWD=\"$MYSQL_PASSWORD\" mysql -h 127.0.0.1 -u $MYSQL_USER -D $MYSQL_DATABASE -e 'SELECT 1'"
-                                        ]
-                                    },
-                                    "initialDelaySeconds": 5,
                                     "timeoutSeconds": 1,
-                                    "periodSeconds": 10,
-                                    "successThreshold": 1,
-                                    "failureThreshold": 3
+                                    "initialDelaySeconds": 5,
+                                    "exec": {
+                                        "command": [ "/bin/sh", "-i", "-c", "psql -h 127.0.0.1 -U $POSTGRESQL_USER -q -d $POSTGRESQL_DATABASE -c 'SELECT 1'"]
+                                    }
+                                },
+                                "livenessProbe": {
+                                    "timeoutSeconds": 1,
+                                    "initialDelaySeconds": 30,
+                                    "tcpSocket": {
+                                        "port": 5432
+                                    }
                                 },
                                 "terminationMessagePath": "/dev/termination-log",
                                 "imagePullPolicy": "IfNotPresent"
@@ -630,7 +618,7 @@
             "kind": "DeploymentConfig",
             "apiVersion": "v1",
             "metadata": {
-                "name": "mysql-backup-persistent",
+                "name": "database-backup-persistent",
                 "labels": {
                     "app": "openproject"
                 }
@@ -656,11 +644,11 @@
                         "imageChangeParams": {
                             "automatic": true,
                             "containerNames": [
-                                "mysql-simple-backup-container"
+                                "postgresql-simple-backup-container"
                             ],
                             "from": {
                                 "kind": "ImageStreamTag",
-                                "name": "mysql-simple-backup-container:latest"
+                                "name": "postgresql-simple-backup-container:9.5"
                             }
                         }
                     }
@@ -668,42 +656,42 @@
                 "replicas": 1,
                 "test": false,
                 "selector": {
-                    "deploymentconfig": "mysql-backup-persistent"
+                    "deploymentconfig": "database-backup-persistent"
                 },
                 "template": {
                     "metadata": {
                         "labels": {
-                            "deploymentconfig": "mysql-backup-persistent"
+                            "deploymentconfig": "database-backup-persistent"
                         }
                     },
                     "spec": {
                         "volumes": [
                             {
-                                "name": "mysql",
+                                "name": "database",
                                 "persistentVolumeClaim": {
-                                    "claimName": "mysql"
+                                    "claimName": "database"
                                 }
                             }
                         ],
                         "containers": [
                             {
-                                "name": "mysql-simple-backup-container",
-                                "image": "mysql-simple-backup-container",
+                                "name": "postgresql-simple-backup-container",
+                                "image": "postgresql-simple-backup-container",
                                 "env": [
                                     {
-                                        "name": "MYSQL_USER",
+                                        "name": "POSTGRESQL_USER",
                                         "value": "${RAILS_DB_USERNAME}"
                                     },
                                     {
-                                        "name": "MYSQL_PASSWORD",
+                                        "name": "POSTGRESQL_PASSWORD",
                                         "value": "${RAILS_DB_PASSWORD}"
                                     },
                                     {
-                                        "name": "MYSQL_SERVICE_HOST",
+                                        "name": "POSTGRESQL_SERVICE_HOST",
                                         "value": "${RAILS_DB_HOST}"
                                     },
                                     {
-                                        "name": "MYSQL_DATABASE",
+                                        "name": "POSTGRESQL_DATABASE",
                                         "value": "${RAILS_DB_NAME}"
                                     },
                                     {
@@ -726,7 +714,7 @@
                                 "resources": {},
                                 "volumeMounts": [
                                     {
-                                        "name": "mysql",
+                                        "name": "database",
                                         "mountPath": "${BACKUP_DATA_DIR}",
                                         "subPath": "backup"
                                     }
@@ -817,24 +805,23 @@
             "kind": "Service",
             "apiVersion": "v1",
             "metadata": {
-                "name": "mysql",
+                "name": "database",
                 "creationTimestamp": null,
                 "labels": {
-                    "app": "openproject",
-                    "template": "mysql-persistent-template"
+                    "app": "openproject"
                 }
             },
             "spec": {
                 "ports": [
                     {
-                        "name": "mysql",
+                        "name": "postgresql",
                         "protocol": "TCP",
-                        "port": 3306,
-                        "targetPort": 3306
+                        "port": 5432,
+                        "targetPort": 5432
                     }
                 ],
                 "selector": {
-                    "name": "mysql"
+                    "name": "database"
                 },
                 "type": "ClusterIP",
                 "sessionAffinity": "None"
@@ -939,13 +926,13 @@
             "kind": "ImageStream",
             "apiVersion": "v1",
             "metadata": {
-                "name": "mysql-simple-backup-container",
+                "name": "postgresql-simple-backup-container",
                 "labels": {
                     "app": "openproject"
                 }
             },
             "spec": {
-                "dockerImageRepository": "appuio/mysql-simple-backup-container"
+                "dockerImageRepository": "appuio/postgresql-simple-backup-container"
             }
         },
         {
@@ -1079,17 +1066,17 @@
         {
             "name": "RAILS_DB_ADAPTER",
             "description": "Database adapter",
-            "value": "mysql2"
+            "value": "postgresql"
         },
         {
             "name": "RAILS_DB_HOST",
             "description": "Database host name",
-            "value": "mysql"
+            "value": "database"
         },
         {
             "name": "RAILS_DB_PORT",
             "description": "Database port",
-            "value": "3306"
+            "value": "5432"
         },
         {
             "name": "RAILS_DB_NAME",
