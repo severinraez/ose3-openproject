@@ -23,7 +23,7 @@ $ oc new-project pitc-openproject-stg
 With persistent volumes and claims (mysql and uploads + repositories) make sure that gluster PVs with the given size(2 GB DB, 5GB Files) are available
 
 ```
-$ oc new-app -f openproject-template.json -p APPLICATION_DOMAIN_EXT=domain.ch -p REDIRECT=other-domain.ch
+$ oc new-app -f openproject-template.json -p APPLICATION_DOMAIN=domain.ch -p REDIRECT=other-domain.ch
 ```
 
 ## import mysql dump
